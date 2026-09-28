@@ -1,0 +1,62 @@
+name: Daily Job Digest
+
+on:
+  schedule:
+    # 12:00 UTC = 8:00 AM Atlanta (EDT) / 7:00 AM (EST).
+    # Adjust the hour if you want it earlier/later. Note: GitHub may delay
+    # scheduled runs by several minutes under load.
+    - cron: "0 12 * * *"
+  workflow_dispatch: {}   # lets you trigger a run manually from the Actions tab
+
+permissions:
+  contents: read
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # seen.json (jobs already emailed) lives in the Actions cache rather than
+      # the repo, so the digest doesn't commit state back every day.
+      - name: Restore seen state
+        uses: actions/cache/restore@v4
+        with:
+          path: seen.json
+          key: seen-${{ github.run_id }}
+          restore-keys: seen-
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Write profile from secret
+        # profile.md is gitignored so personal details stay out of the repo.
+        env:
+          PROFILE_MD: ${{ secrets.PROFILE_MD }}
+        run: |
+          if [[ -n "$PROFILE_MD" ]]; then
+            printf '%s\n' "$PROFILE_MD" > profile.md
+          else
+            echo "PROFILE_MD secret not set; AI ranking will be skipped."
+          fi
+
+      - name: Run digest
+        env:
+          SMTP_HOST: smtp.gmail.com
+          SMTP_PORT: "465"
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python job_digest.py
+
+      - name: Save seen state
+        if: always()        # save even if a later step is added/fails
+        uses: actions/cache/save@v4
+        with:
+          path: seen.json
+          key: seen-${{ github.run_id }}

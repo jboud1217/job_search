@@ -1,0 +1,133 @@
+# --------------------------------------------------------------------------- #
+# Job digest configuration
+# --------------------------------------------------------------------------- #
+
+# A role is kept if its TITLE contains any of these (case-insensitive).
+# Leave the list empty to keep every title.
+title_keywords:
+  - forward deployed
+  - applied ai
+  - solutions architect
+  - solutions engineer
+  - customer engineer
+  - sales engineer
+  - ai engineer
+
+# A role is kept if its LOCATION contains any of these (case-insensitive).
+# Leave the list empty to keep roles in ANY location (useful if you'd rather
+# see every FDE role and decide on relocation yourself).
+location_keywords:
+  - atlanta
+  - georgia
+  - remote
+  # - united states   # uncomment to also catch country-level "Remote - US" roles
+
+# Send a digest even when there are no new roles (daily heartbeat).
+# false = only email when there's something new or a source errored.
+always_send: false
+
+# --------------------------------------------------------------------------- #
+# AI fit ranking (uses the Anthropic API to score + sort each role)
+# --------------------------------------------------------------------------- #
+# Requires the ANTHROPIC_API_KEY secret. Scores each new role 0-100 against
+# profile.md, sorts into Apply first / Worth a look / Long shot, and adds a
+# one-line reason. If the key or profile is missing, it falls back to a plain
+# list grouped by company.
+rank_with_ai: true
+model: claude-haiku-4-5      # fast + cheap; swap to claude-sonnet-4-6 for sharper judgment
+max_scored_per_run: 40       # safety cap on API calls per run (avoids a big first-run bill)
+
+# --------------------------------------------------------------------------- #
+# Sources
+#   type: greenhouse | lever | ashby  -> queried via public API (token = board slug)
+#   type: link                        -> not queryable; emitted as a search link
+# --------------------------------------------------------------------------- #
+sources:
+  # ---- Frontier AI labs ----
+  - name: Anthropic
+    type: greenhouse
+    token: anthropic
+  - name: OpenAI
+    type: ashby
+    token: openai
+
+  # ---- Enterprise AI / data (heavy FDE / Solutions Architect / Sales Engineer hiring) ----
+  - name: Glean
+    type: greenhouse
+    token: gleanwork
+  - name: Palantir
+    type: lever
+    token: palantir
+  - name: Databricks
+    type: greenhouse
+    token: databricks
+  - name: Snowflake
+    type: ashby
+    token: snowflake
+  - name: Scale AI
+    type: greenhouse
+    token: scaleai
+  - name: Sierra            # Bret Taylor's AI-agent company; has a growing Atlanta office
+    type: ashby
+    token: sierra
+
+  # ---- Atlanta-headquartered tech ----
+  - name: Calendly
+    type: greenhouse
+    token: calendly
+  - name: Salesloft
+    type: greenhouse
+    token: salesloft
+  - name: Flock Safety
+    type: ashby
+    token: Flock Safety     # Ashby board name has a space; the script URL-encodes it
+  - name: OneTrust
+    type: greenhouse
+    token: onetrust
+  - name: Greenlight
+    type: lever
+    token: greenlight
+
+  # ---- Big consumer tech ----
+  - name: Airbnb
+    type: greenhouse
+    token: airbnb
+
+  # ---- More frontier AI / dev tools ----
+  - name: Cursor
+    type: ashby
+    token: cursor
+  - name: Cohere
+    type: ashby
+    token: cohere
+  - name: Vercel
+    type: greenhouse
+    token: vercel
+
+  # ---- Google: no public ATS API, so we scrape the SSR results page ----
+  # Each (query, location) pair = one request. Google's `location=` filter
+  # returns roles that are *eligible* for that office, even when the card
+  # displays a different primary city.
+  - name: Google
+    type: google
+    queries:
+      - customer engineer
+      - solutions architect
+      - forward deployed
+      - ai engineer
+      - sales engineer
+    locations:
+      - Atlanta
+
+  # ---- Custom / Workday boards: no public read API, so we emit a search link ----
+  - name: NCR Voyix          # Atlanta-HQ; runs Workday (no public read API), so search link
+    type: link
+    url: "https://careers.ncrvoyix.com/global/en/search-results?keywords=solutions%20architect%20engineer"
+
+  # ---- To add more companies ----
+  # Open a company's careers page and read the ATS off the URL:
+  #   boards.greenhouse.io/SLUG  (or job-boards.greenhouse.io/SLUG) -> greenhouse, token: SLUG
+  #   jobs.lever.co/SLUG                                            -> lever,      token: SLUG
+  #   jobs.ashbyhq.com/SLUG                                         -> ashby,      token: SLUG
+  # Couldn't confirm clean public-API slugs for Pindrop or Stord — check their
+  # careers page URLs; if either is on Workday/iCIMS, add it as a `link` instead.
